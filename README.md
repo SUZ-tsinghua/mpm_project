@@ -11,10 +11,10 @@ python simulate.py --visualize --simulation_steps=20000
 ## Examples
 
 ### DifferentDensity
-<video src="videos/DifferentDensity.mp4" controls></video>
+![](./videos/Flood.gif)
 
 ### Flood
-<video src="videos/Flood.mp4" controls></video>
+![](./videos/Flood.mp4)
 
 
 ## Features Checklist
