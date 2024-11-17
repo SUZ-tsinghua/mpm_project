@@ -8,6 +8,15 @@ python simulate.py --visualize --simulation_steps=20000 --scenario='DifferentDen
 python simulate.py --visualize --simulation_steps=20000
 ```
 
+## Examples
+
+### DifferentDensity
+<video src="videos/DifferentDensity.mp4" controls></video>
+
+### Flood
+<video src="videos/Flood.mp4" controls></video>
+
+
 ## Features Checklist
 
 - Basic Types
