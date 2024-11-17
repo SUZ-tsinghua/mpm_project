@@ -5,6 +5,7 @@ import os
 from MPM.geometry import CubeGeometry, BallGeometry
 from MPM import WATER, JELLY, SNOW
 
+
 @ti.data_oriented
 class SimulationRunner:
 
@@ -75,6 +76,9 @@ class SimulationRunner:
                                    obj.p_rho, obj.E, obj.nu)
             else:
                 raise Exception("Undefined object geometry")
+
+            obj.start_p_idx = next_p
+            obj.end_p_idx = next_p + par_count
             next_p += par_count
 
     @ti.kernel
@@ -93,8 +97,8 @@ class SimulationRunner:
     @ti.kernel
     def init_cube_vol(self, first_par: int, last_par: int, x_begin: float,
                       y_begin: float, z_begin: float, x_size: float,
-                      y_size: float, z_size: float, material: int, color_r: float,
-                      color_g: float, color_b: float,
+                      y_size: float, z_size: float, material: int,
+                      color_r: float, color_g: float, color_b: float,
                       p_rho: float, E: float, nu: float):
         for i in range(first_par, last_par):
             self.x[i] = ti.Vector([ti.random()
@@ -117,16 +121,17 @@ class SimulationRunner:
     @ti.kernel
     def init_ball_vol(self, first_par: int, last_par: int, center_x: float,
                       center_y: float, center_z: float, radius: float,
-                      material: int, color_r: float,
-                      color_g: float, color_b: float, p_rho: float, E: float,
-                      nu: float):
+                      material: int, color_r: float, color_g: float,
+                      color_b: float, p_rho: float, E: float, nu: float):
         for i in range(first_par, last_par):
             theta = 2 * math.pi * ti.random()
-            phi = math.acos(1-2* ti.random())
-            r = radius * (ti.random())**(1/3)
-            self.x[i] = ti.Vector([center_x + r * math.sin(phi) * math.cos(theta),
-                                    center_y + r * math.sin(phi) * math.sin(theta),
-                                    center_z + r * math.cos(phi)])
+            phi = math.acos(1 - 2 * ti.random())
+            r = radius * (ti.random())**(1 / 3)
+            self.x[i] = ti.Vector([
+                center_x + r * math.sin(phi) * math.cos(theta),
+                center_y + r * math.sin(phi) * math.sin(theta),
+                center_z + r * math.cos(phi)
+            ])
             self.Jp[i] = 1
             self.F[i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
             self.v[i] = ti.Vector([0.0, 0.0, 0.0])
@@ -230,7 +235,7 @@ class SimulationRunner:
 
     def run(self, run_args):
         self.run_args = run_args
-        
+
         # initialize visalization settings
         if self.run_args.visualize:
             res = (1080, 720)
@@ -243,20 +248,46 @@ class SimulationRunner:
             self.camera.lookat(0.5, 0.3, 0.5)
             self.camera.fov(55)
             self.particles_radius = 0.01 / 2**(self.quality - 1)
-        
+
+        if self.run_args.store_output:
+            self.output_dir = f"output/{self.run_args.scenario}"
+            import os
+            import shutil
+            os.makedirs(self.output_dir, exist_ok=True)
+            shutil.rmtree(self.output_dir)
+            os.makedirs(self.output_dir, exist_ok=True)
+
         # run simulation
         for i in range(self.run_args.simulation_steps):
             for s in range(30):
                 self.substep()
             self.render()
 
+            # output .ply files
+            if self.run_args.store_output:
+                np_x = self.x.to_numpy()
+                for j, obj in enumerate(self.objects):
+                    writer = ti.tools.PLYWriter(num_vertices=obj.end_p_idx -
+                                                obj.start_p_idx)
+                    writer.add_vertex_pos(
+                        np_x[obj.start_p_idx:obj.end_p_idx,
+                             0], np_x[obj.start_p_idx:obj.end_p_idx, 1],
+                        np_x[obj.start_p_idx:obj.end_p_idx, 2])
+                    os.makedirs(self.output_dir + f"/{i:06}", exist_ok=True)
+                    writer.export_ascii(self.output_dir +
+                                        f"/{i:06}/particle_object_{j}.ply")
+
     def render(self):
         if self.run_args.visualize:
-            self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
+            self.camera.track_user_inputs(self.window,
+                                          movement_speed=0.03,
+                                          hold_key=ti.ui.RMB)
             self.scene.set_camera(self.camera)
 
             self.scene.ambient_light((0, 0, 0))
-            self.scene.particles(self.x, per_vertex_color=self.colors, radius=self.particles_radius)
+            self.scene.particles(self.x,
+                                 per_vertex_color=self.colors,
+                                 radius=self.particles_radius)
 
             self.scene.point_light(pos=(0.5, 1.5, 0.5), color=(0.5, 0.5, 0.5))
             self.scene.point_light(pos=(0.5, 1.5, 1.5), color=(0.5, 0.5, 0.5))

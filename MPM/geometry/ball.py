@@ -1,6 +1,7 @@
 from MPM.geometry.base_geometry import BaseGeometry
 import numpy as np
 
+
 class BallGeometry(BaseGeometry):
 
     def __init__(self,

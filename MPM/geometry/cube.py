@@ -1,5 +1,6 @@
 from MPM.geometry.base_geometry import BaseGeometry
 
+
 class CubeGeometry(BaseGeometry):
 
     def __init__(self,

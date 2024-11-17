@@ -3,6 +3,7 @@ from MPM.geometry import BallGeometry, CubeGeometry
 from MPM.config.base_cfg import BaseCfg
 from MPM import WATER, JELLY, SNOW
 
+
 class WaterYellySnowCfg(BaseCfg):
     objects = [
         CubeGeometry(material=WATER,
