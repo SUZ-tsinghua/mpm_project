@@ -15,7 +15,7 @@ class SimulationRunner:
         # simulation/discretization constants
         self.dim = self.cfg.dim
         self.quality = self.cfg.quality  # Use a larger value for higher-res simulations
-        self.n_particles, self.n_grid = 8192 * self.quality**self.dim, 32 * self.quality
+        self.n_particles, self.n_grid = 65536 * self.quality**self.dim, 32 * self.quality
         self.dt = self.cfg.dt
         self.dx = 1.0 / self.n_grid
         self.inv_dx = float(self.n_grid)
@@ -259,7 +259,7 @@ class SimulationRunner:
 
         # run simulation
         for i in range(self.run_args.simulation_steps):
-            for s in range(30):
+            for s in range(300):
                 self.substep()
             self.render()
 

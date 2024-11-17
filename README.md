@@ -36,6 +36,6 @@ python simulate.py --visualize --simulation_steps=20000
 - Control
   - [x] Customized scene configuration
     - Can use config files to customize scene configuration.
-  - Interactive scene
+  - [ ] Interactive scene
 - Rendering
   - [x] Now use Blender to render
