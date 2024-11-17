@@ -15,10 +15,13 @@ class SimulationRunner:
         # simulation/discretization constants
         self.dim = self.cfg.dim
         self.quality = self.cfg.quality  # Use a larger value for higher-res simulations
-        self.n_particles, self.n_grid = 65536 * self.quality**self.dim, 32 * self.quality
+        self.n_particles, self.n_grid_per_length = (
+            65536 * self.quality**self.dim,
+            32 * self.quality,
+        )
         self.dt = self.cfg.dt
-        self.dx = 1.0 / self.n_grid
-        self.inv_dx = float(self.n_grid)
+        self.dx = 1.0 / self.n_grid_per_length
+        self.inv_dx = float(self.n_grid_per_length)
 
         # physics related constants
         self.gravity = -9.8
@@ -39,9 +42,23 @@ class SimulationRunner:
             self.dim, self.dim, dtype=float,
             shape=self.n_particles)  # deformation gradient
         self.Jp = ti.field(float, self.n_particles)
-        self.grid_v = ti.Vector.field(self.dim, float,
-                                      (self.n_grid, ) * self.dim)
-        self.grid_m = ti.field(float, (self.n_grid, ) * self.dim)
+        self.grid_v = ti.Vector.field(
+            self.dim,
+            float,
+            (
+                int(self.n_grid_per_length * self.cfg.box_size[0]),
+                int(self.n_grid_per_length * self.cfg.box_size[1]),
+                int(self.n_grid_per_length * self.cfg.box_size[2]),
+            ),
+        )
+        self.grid_m = ti.field(
+            float,
+            (
+                int(self.n_grid_per_length * self.cfg.box_size[0]),
+                int(self.n_grid_per_length * self.cfg.box_size[1]),
+                int(self.n_grid_per_length * self.cfg.box_size[2]),
+            ),
+        )
         self.materials = ti.field(int, self.n_particles)
         self.p_is_used = ti.field(
             int, self.n_particles)  # should be a boolean field
@@ -67,13 +84,29 @@ class SimulationRunner:
             if i == len(self.objects) - 1:
                 par_count = self.n_particles - next_p
             if isinstance(obj, CubeGeometry):
-                self.init_cube_vol(next_p, next_p + par_count, *obj.minimum,
-                                   *obj.size, obj.material, *obj.color,
-                                   obj.p_rho, obj.E, obj.nu)
+                self.init_cube_vol(
+                    next_p,
+                    next_p + par_count,
+                    *obj.minimum,
+                    *obj.size,
+                    obj.material,
+                    *obj.color,
+                    obj.p_rho,
+                    obj.E,
+                    obj.nu,
+                )
             elif isinstance(obj, BallGeometry):
-                self.init_ball_vol(next_p, next_p + par_count, *obj.center,
-                                   obj.radius, obj.material, *obj.color,
-                                   obj.p_rho, obj.E, obj.nu)
+                self.init_ball_vol(
+                    next_p,
+                    next_p + par_count,
+                    *obj.center,
+                    obj.radius,
+                    obj.material,
+                    *obj.color,
+                    obj.p_rho,
+                    obj.E,
+                    obj.nu,
+                )
             else:
                 raise Exception("Undefined object geometry")
 
@@ -95,11 +128,24 @@ class SimulationRunner:
             self.v[p] = ti.Vector([0.0, 0.0, 0.0])
 
     @ti.kernel
-    def init_cube_vol(self, first_par: int, last_par: int, x_begin: float,
-                      y_begin: float, z_begin: float, x_size: float,
-                      y_size: float, z_size: float, material: int,
-                      color_r: float, color_g: float, color_b: float,
-                      p_rho: float, E: float, nu: float):
+    def init_cube_vol(
+        self,
+        first_par: int,
+        last_par: int,
+        x_begin: float,
+        y_begin: float,
+        z_begin: float,
+        x_size: float,
+        y_size: float,
+        z_size: float,
+        material: int,
+        color_r: float,
+        color_g: float,
+        color_b: float,
+        p_rho: float,
+        E: float,
+        nu: float,
+    ):
         for i in range(first_par, last_par):
             self.x[i] = ti.Vector([ti.random()
                                    for j in range(self.dim)]) * ti.Vector(
@@ -119,10 +165,22 @@ class SimulationRunner:
             self.p_is_used[i] = 1
 
     @ti.kernel
-    def init_ball_vol(self, first_par: int, last_par: int, center_x: float,
-                      center_y: float, center_z: float, radius: float,
-                      material: int, color_r: float, color_g: float,
-                      color_b: float, p_rho: float, E: float, nu: float):
+    def init_ball_vol(
+        self,
+        first_par: int,
+        last_par: int,
+        center_x: float,
+        center_y: float,
+        center_z: float,
+        radius: float,
+        material: int,
+        color_r: float,
+        color_g: float,
+        color_b: float,
+        p_rho: float,
+        E: float,
+        nu: float,
+    ):
         for i in range(first_par, last_par):
             theta = 2 * math.pi * ti.random()
             phi = math.acos(1 - 2 * ti.random())
@@ -130,7 +188,7 @@ class SimulationRunner:
             self.x[i] = ti.Vector([
                 center_x + r * math.sin(phi) * math.cos(theta),
                 center_y + r * math.sin(phi) * math.sin(theta),
-                center_z + r * math.cos(phi)
+                center_z + r * math.cos(phi),
             ])
             self.Jp[i] = 1
             self.F[i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
@@ -188,10 +246,10 @@ class SimulationRunner:
                               self.inv_dx) * stress
                     affine = stress + self.p_mass[p] * self.C[p]
                 else:
-                    stress = -self.dt * 4 * self.p_E[p] * self.p_vol * (
-                        self.Jp[p] - 1) * self.inv_dx * self.inv_dx
-                    affine = ti.Matrix.identity(
-                        float, self.dim) * stress + self.p_mass[p] * self.C[p]
+                    stress = (-self.dt * 4 * self.p_E[p] * self.p_vol *
+                              (self.Jp[p] - 1) * self.inv_dx * self.inv_dx)
+                    affine = (ti.Matrix.identity(float, self.dim) * stress +
+                              self.p_mass[p] * self.C[p])
 
                 for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
                     offset = ti.Vector([i, j, k])
@@ -209,7 +267,9 @@ class SimulationRunner:
                 for d in ti.static(range(self.dim)):
                     if I[d] < 3 and self.grid_v[I][d] < 0:
                         self.grid_v[I][d] = 0
-                    if I[d] > self.n_grid - 3 and self.grid_v[I][d] > 0:
+                    if (I[d]
+                            > self.n_grid_per_length * self.cfg.box_size[d] - 3
+                            and self.grid_v[I][d] > 0):
                         self.grid_v[I][d] = 0
 
         # G2P step
@@ -218,8 +278,9 @@ class SimulationRunner:
                 base = (self.x[p] * self.inv_dx - 0.5).cast(int)
                 fx = self.x[p] * self.inv_dx - base.cast(float)
                 w = [
-                    0.5 * (1.5 - fx)**2, 0.75 - (fx - 1.0)**2,
-                    0.5 * (fx - 0.5)**2
+                    0.5 * (1.5 - fx)**2,
+                    0.75 - (fx - 1.0)**2,
+                    0.5 * (fx - 0.5)**2,
                 ]
                 new_v = ti.Vector.zero(float, 3)
                 new_C = ti.Matrix.zero(float, 3, 3)
@@ -253,6 +314,7 @@ class SimulationRunner:
             self.output_dir = f"output/{self.run_args.scenario}"
             import os
             import shutil
+
             os.makedirs(self.output_dir, exist_ok=True)
             shutil.rmtree(self.output_dir)
             os.makedirs(self.output_dir, exist_ok=True)
@@ -270,9 +332,10 @@ class SimulationRunner:
                     writer = ti.tools.PLYWriter(num_vertices=obj.end_p_idx -
                                                 obj.start_p_idx)
                     writer.add_vertex_pos(
-                        np_x[obj.start_p_idx:obj.end_p_idx,
-                             0], np_x[obj.start_p_idx:obj.end_p_idx, 1],
-                        np_x[obj.start_p_idx:obj.end_p_idx, 2])
+                        np_x[obj.start_p_idx:obj.end_p_idx, 0],
+                        np_x[obj.start_p_idx:obj.end_p_idx, 1],
+                        np_x[obj.start_p_idx:obj.end_p_idx, 2],
+                    )
                     os.makedirs(self.output_dir + f"/{i:06}", exist_ok=True)
                     writer.export_ascii(self.output_dir +
                                         f"/{i:06}/particle_object_{j}.ply")
