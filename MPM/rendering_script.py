@@ -3,7 +3,8 @@ import sys
 import os
 
 # Set rendering device to OPTIX
-bpy.context.preferences.addons['cycles'].preferences.compute_device_type = 'OPTIX'
+bpy.context.preferences.addons[
+    'cycles'].preferences.compute_device_type = 'OPTIX'
 bpy.context.preferences.addons['cycles'].preferences.get_devices()
 
 # set denoiser
@@ -12,7 +13,8 @@ bpy.context.scene.cycles.use_denoising = True
 bpy.context.scene.cycles.denoiser = denoiser
 bpy.context.scene.cycles.denoising_optix_input_passes = 'RGB_ALBEDO_NORMAL'
 
-rendering_device_type = sys.argv[-4]  # Assumes the rendering device type is the fourth last argument
+rendering_device_type = sys.argv[
+    -4]  # Assumes the rendering device type is the fourth last argument
 gpu_id = int(sys.argv[-3])  # Assumes the optix id is the third last argument
 device_id_count = 0
 
@@ -20,19 +22,20 @@ for device in bpy.context.preferences.addons['cycles'].preferences.devices:
     if device.type == rendering_device_type:
         if device_id_count == gpu_id:
             device.use = True
-            print(f"using device: {device.name} id: {gpu_id} type: {device.type}")
+            print(
+                f"using device: {device.name} id: {gpu_id} type: {device.type}"
+            )
         else:
             device.use = False
         device_id_count += 1
     else:
         device.use = False
 
-
-
 # Get the .obj file path from command line arguments
-frame_dir = sys.argv[-2] # Assumes the frame directory is the second last argument
-output_image_path = sys.argv[-1]  # Assumes the output image path is the last argument
-
+frame_dir = sys.argv[
+    -2]  # Assumes the frame directory is the second last argument
+output_image_path = sys.argv[
+    -1]  # Assumes the output image path is the last argument
 
 for file in os.listdir(frame_dir):
     if file.endswith(".obj"):
