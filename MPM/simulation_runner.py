@@ -16,8 +16,8 @@ class SimulationRunner:
         self.dim = self.cfg.dim
         self.quality = self.cfg.quality  # Use a larger value for higher-res simulations
         self.n_particles, self.n_grid_per_length = (
-            65536 * self.quality**self.dim,
-            32 * self.quality,
+            cfg.base_num_particles * self.quality**self.dim,
+            cfg.base_n_grid_per_length * self.quality,
         )
         self.dt = self.cfg.dt
         self.dx = 1.0 / self.n_grid_per_length
@@ -94,6 +94,7 @@ class SimulationRunner:
                     obj.p_rho,
                     obj.E,
                     obj.nu,
+                    *obj.init_vel,
                 )
             elif isinstance(obj, BallGeometry):
                 self.init_ball_vol(
@@ -106,6 +107,7 @@ class SimulationRunner:
                     obj.p_rho,
                     obj.E,
                     obj.nu,
+                    *obj.init_vel,
                 )
             else:
                 raise Exception("Undefined object geometry")
@@ -145,6 +147,9 @@ class SimulationRunner:
         p_rho: float,
         E: float,
         nu: float,
+        init_vel_x: float,
+        init_vel_y: float,
+        init_vel_z: float,
     ):
         for i in range(first_par, last_par):
             self.x[i] = ti.Vector([ti.random()
@@ -153,7 +158,7 @@ class SimulationRunner:
                                            [x_begin, y_begin, z_begin])
             self.Jp[i] = 1
             self.F[i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-            self.v[i] = ti.Vector([0.0, 0.0, 0.0])
+            self.v[i] = ti.Vector([init_vel_x, init_vel_y, init_vel_z])
             self.p_rho[i] = p_rho
             self.p_mass[i] = p_rho * self.p_vol
             self.p_E[i] = E
@@ -180,6 +185,9 @@ class SimulationRunner:
         p_rho: float,
         E: float,
         nu: float,
+        init_vel_x: float,
+        init_vel_y: float,
+        init_vel_z: float,
     ):
         for i in range(first_par, last_par):
             theta = 2 * math.pi * ti.random()
@@ -192,7 +200,7 @@ class SimulationRunner:
             ])
             self.Jp[i] = 1
             self.F[i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
-            self.v[i] = ti.Vector([0.0, 0.0, 0.0])
+            self.v[i] = ti.Vector([init_vel_x, init_vel_y, init_vel_z])
             self.p_rho[i] = p_rho
             self.p_mass[i] = p_rho * self.p_vol
             self.p_E[i] = E

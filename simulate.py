@@ -1,7 +1,7 @@
 import taichi as ti
 import argparse
 from MPM.simulation_runner import SimulationRunner
-from MPM.config import WaterYellySnowCfg, DifferentDensityCfg, FloodCfg, TwoFluidCfg
+from MPM.config import WaterYellySnowCfg, DifferentDensityCfg, FloodCfg, TwoFluidCfg, TwoBallCfg
 
 # you may want to change the arch to ti.vulkan manually if you are using Apple M1/M2
 ti.init(arch=ti.gpu)
@@ -16,6 +16,8 @@ def main(args):
         cfg = FloodCfg
     elif args.scenario == "TwoFluid":
         cfg = TwoFluidCfg
+    elif args.scenario == "TwoBalls":
+        cfg = TwoBallCfg
     else:
         raise Exception("Undefined scenario")
 

@@ -9,12 +9,23 @@ python simulate.py --visualize --simulation_steps=20000
 ```
 
 ## Examples
+Below, we showcase several scenarios in .gif format. For better quality, we recommend viewing the original .mp4 files in the videos folder.
 
 ### Fluid-Fluid Coupling
 ![](./videos/TwoFluid.gif)
 
 ### Fluid-Solid Coupling
 ![](./videos/Flood.gif)
+
+### Solid-Solid Coupling
+
+In this example, two balls with different Young's Moduli collide. The Young's Modulus values are `1e3` for the left ball and `1e4` for the right ball.
+
+![](./videos/TwoBalls.gif)
+
+As shown in the video below, the left ball deforms significantly more than the right ball due to its lower Young's Modulus.
+
+![](./videos/TwoBalls_extracted.gif)
 
 
 ## Features Checklist

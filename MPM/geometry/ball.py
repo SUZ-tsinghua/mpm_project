@@ -11,8 +11,9 @@ class BallGeometry(BaseGeometry):
                  p_rho=1.0,
                  E=0.1e4,
                  nu=0.2,
-                 color=None):
-        super().__init__(material, p_rho, E, nu, color)
+                 color=None,
+                 init_vel=None):
+        super().__init__(material, p_rho, E, nu, color, init_vel)
         self.center = center
         self.radius = radius
         self.volume = 4 / 3 * np.pi * radius**3
