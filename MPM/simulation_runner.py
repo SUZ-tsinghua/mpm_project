@@ -4,7 +4,7 @@ from taichi import math
 import os
 from MPM.geometry import CubeGeometry, BallGeometry
 from MPM import WATER, JELLY, SNOW
-
+from tqdm import tqdm
 
 @ti.data_oriented
 class SimulationRunner:
@@ -220,36 +220,35 @@ class SimulationRunner:
                     0.5 * (fx - 0.5)**2
                 ]
                 affine = ti.Matrix.zero(float, self.dim, self.dim)
-                if self.materials[p] != WATER:
-                    self.F[p] = (ti.Matrix.identity(float, 3) +
-                                 self.dt * self.C[p]) @ self.F[p]
-                    h = ti.exp(10 * (1.0 - self.Jp[p]))
-                    if self.materials[p] == JELLY:
-                        h = 0.3
-                    mu, la = self.p_mu_0[p] * h, self.p_lambda_0[p] * h
-                    U, sig, V = ti.svd(self.F[p])
-                    J = 1.0
-                    for d in ti.static(range(3)):
-                        new_sig = sig[d, d]
-                        if self.materials[p] == SNOW:
-                            new_sig = ti.min(ti.max(sig[d, d], 1 - 2.5e-2),
-                                             1 + 4.5e-3)
-                        self.Jp[p] *= sig[d, d] / new_sig
-                        sig[d, d] = new_sig
-                        J *= new_sig
+                self.F[p] = (ti.Matrix.identity(float, 3) +
+                                self.dt * self.C[p]) @ self.F[p]
+                h = ti.exp(10 * (1.0 - self.Jp[p]))
+                if self.materials[p] == JELLY:
+                    h = 0.3
+                mu, la = self.p_mu_0[p] * h, self.p_lambda_0[p] * h
+                if self.materials[p] == WATER:
+                    mu = 0.0
+                U, sig, V = ti.svd(self.F[p])
+                J = 1.0
+                for d in ti.static(range(3)):
+                    new_sig = sig[d, d]
                     if self.materials[p] == SNOW:
-                        self.F[p] = U @ sig @ V.transpose()
-                    stress = 2 * mu * (
-                        self.F[p] - U @ V.transpose()) @ self.F[p].transpose(
-                        ) + ti.Matrix.identity(float, 3) * la * J * (J - 1)
-                    stress = (-self.dt * self.p_vol * 4 * self.inv_dx *
-                              self.inv_dx) * stress
-                    affine = stress + self.p_mass[p] * self.C[p]
-                else:
-                    stress = (-self.dt * 4 * self.p_E[p] * self.p_vol *
-                              (self.Jp[p] - 1) * self.inv_dx * self.inv_dx)
-                    affine = (ti.Matrix.identity(float, self.dim) * stress +
-                              self.p_mass[p] * self.C[p])
+                        new_sig = ti.min(ti.max(sig[d, d], 1 - 2.5e-2),
+                                            1 + 4.5e-3)
+                    self.Jp[p] *= sig[d, d] / new_sig
+                    sig[d, d] = new_sig
+                    J *= new_sig
+                if self.materials[p] == WATER:
+                    self.F[p] = ti.Matrix.identity(float, 3)
+                    self.F[p][0, 0] = self.Jp[p]
+                elif self.materials[p] == SNOW:
+                    self.F[p] = U @ sig @ V.transpose()
+                stress = 2 * mu * (
+                    self.F[p] - U @ V.transpose()) @ self.F[p].transpose(
+                    ) + ti.Matrix.identity(float, 3) * la * J * (J - 1)
+                stress = (-self.dt * self.p_vol * 4 * self.inv_dx *
+                            self.inv_dx) * stress
+                affine = stress + self.p_mass[p] * self.C[p]
 
                 for i, j, k in ti.static(ti.ndrange(3, 3, 3)):
                     offset = ti.Vector([i, j, k])
@@ -320,8 +319,8 @@ class SimulationRunner:
             os.makedirs(self.output_dir, exist_ok=True)
 
         # run simulation
-        for i in range(self.run_args.simulation_steps):
-            for s in range(300):
+        for i in tqdm(range(self.run_args.simulation_steps)):
+            for s in range(100):
                 self.substep()
             self.render()
 

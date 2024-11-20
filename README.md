@@ -1,7 +1,7 @@
 example:
 
 ```bash
-python simulate.py --visualize --simulation_steps=20000 --scenario='DifferentDensity'
+python simulate.py --visualize --simulation_steps=20000 --scenario='Flood'
 ```
 
 ```bash
@@ -10,10 +10,10 @@ python simulate.py --visualize --simulation_steps=20000
 
 ## Examples
 
-### DifferentDensity
-![](./videos/DifferentDensity.gif)
+### Fluid-Fluid Coupling
+![](./videos/TwoFluid.gif)
 
-### Flood
+### Fluid-Solid Coupling
 ![](./videos/Flood.gif)
 
 

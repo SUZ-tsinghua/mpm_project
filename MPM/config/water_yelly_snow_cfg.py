@@ -11,7 +11,7 @@ class WaterYellySnowCfg(BaseCfg):
             minimum=ti.Vector([0.6, 0.05, 0.6]),
             size=ti.Vector([0.25, 0.25, 0.25]),
             p_rho=1.0,
-            E=400,
+            E=0.1e4,
             nu=0.2,
         ),
         CubeGeometry(
