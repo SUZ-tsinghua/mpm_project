@@ -9,7 +9,7 @@ python simulate.py --visualize --simulation_steps=20000
 ```
 
 ## Examples
-Below, we showcase several scenarios in .gif format. For better quality, we recommend viewing the original .mp4 files in the videos folder.
+Below, we showcase several scenarios in `.gif` format. For better quality, we recommend viewing the original `.mp4` files in the `videos` folder.
 
 ### Fluid-Fluid Coupling
 ![](./videos/TwoFluid.gif)
