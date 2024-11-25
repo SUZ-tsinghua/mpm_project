@@ -2,9 +2,10 @@ import numpy as np
 import taichi as ti
 from taichi import math
 import os
-from MPM.geometry import CubeGeometry, BallGeometry
+from MPM.geometry import CubeGeometry, BallGeometry, PlyGeometry
 from MPM import WATER, JELLY, SNOW
 from tqdm import tqdm
+import open3d as o3d
 
 @ti.data_oriented
 class SimulationRunner:
@@ -15,10 +16,11 @@ class SimulationRunner:
         # simulation/discretization constants
         self.dim = self.cfg.dim
         self.quality = self.cfg.quality  # Use a larger value for higher-res simulations
-        self.n_particles, self.n_grid_per_length = (
-            cfg.base_num_particles * self.quality**self.dim,
+        self.max_n_particles, self.n_grid_per_length = (
+            cfg.base_max_num_particles * self.quality**self.dim,
             cfg.base_n_grid_per_length * self.quality,
         )
+        self.particles_per_unit_volume = cfg.particles_per_unit_volume
         self.dt = self.cfg.dt
         self.dx = 1.0 / self.n_grid_per_length
         self.inv_dx = float(self.n_grid_per_length)
@@ -28,20 +30,20 @@ class SimulationRunner:
 
         # for simulation
         self.p_vol = (self.dx * 0.5)**(self.dim)
-        self.p_rho = ti.field(float, self.n_particles)
-        self.p_mass = ti.field(float, self.n_particles)
-        self.p_E = ti.field(float, self.n_particles)
-        self.p_nu = ti.field(float, self.n_particles)
-        self.p_mu_0 = ti.field(float, self.n_particles)
-        self.p_lambda_0 = ti.field(float, self.n_particles)
-        self.x = ti.Vector.field(self.dim, float, self.n_particles)  # position
-        self.v = ti.Vector.field(self.dim, float, self.n_particles)  # velocity
+        self.p_rho = ti.field(float, self.max_n_particles)
+        self.p_mass = ti.field(float, self.max_n_particles)
+        self.p_E = ti.field(float, self.max_n_particles)
+        self.p_nu = ti.field(float, self.max_n_particles)
+        self.p_mu_0 = ti.field(float, self.max_n_particles)
+        self.p_lambda_0 = ti.field(float, self.max_n_particles)
+        self.x = ti.Vector.field(self.dim, float, self.max_n_particles)  # position
+        self.v = ti.Vector.field(self.dim, float, self.max_n_particles)  # velocity
         self.C = ti.Matrix.field(self.dim, self.dim, float,
-                                 self.n_particles)  # The APIC-related matrix
+                                 self.max_n_particles)  # The APIC-related matrix
         self.F = ti.Matrix.field(
             self.dim, self.dim, dtype=float,
-            shape=self.n_particles)  # deformation gradient
-        self.Jp = ti.field(float, self.n_particles)
+            shape=self.max_n_particles)  # deformation gradient
+        self.Jp = ti.field(float, self.max_n_particles)
         self.grid_v = ti.Vector.field(
             self.dim,
             float,
@@ -59,30 +61,33 @@ class SimulationRunner:
                 int(self.n_grid_per_length * self.cfg.box_size[2]),
             ),
         )
-        self.materials = ti.field(int, self.n_particles)
+        self.materials = ti.field(int, self.max_n_particles)
         self.p_is_used = ti.field(
-            int, self.n_particles)  # should be a boolean field
+            int, self.max_n_particles)  # should be a boolean field
         self.p_is_used.fill(1)
 
         # for visualization
-        self.colors = ti.Vector.field(4, float, self.n_particles)
+        self.colors = ti.Vector.field(4, float, self.max_n_particles)
 
         self.objects = cfg.objects
+        self.trivial_geometry_objects = []
+        self.ply_objects = []
         self.create_objects()
 
     def create_objects(self):
         self.set_all_unused()
-        total_vol = 0
         for obj in self.objects:
-            total_vol += obj.volume
+            if isinstance(obj, CubeGeometry) or isinstance(obj, BallGeometry):
+                self.trivial_geometry_objects.append(obj)
+            elif isinstance(obj, PlyGeometry):
+                self.ply_objects.append(obj)
+            else:
+                raise Exception("Undefined object geometry")
 
         next_p = 0
-        for i, obj in enumerate(self.objects):
-            par_count = int(obj.volume / total_vol * self.n_particles)
+        for obj in self.trivial_geometry_objects:
+            par_count = int(obj.volume * self.particles_per_unit_volume)
 
-            # this is the last volume, so use all remaining particles
-            if i == len(self.objects) - 1:
-                par_count = self.n_particles - next_p
             if isinstance(obj, CubeGeometry):
                 self.init_cube_vol(
                     next_p,
@@ -115,6 +120,30 @@ class SimulationRunner:
             obj.start_p_idx = next_p
             obj.end_p_idx = next_p + par_count
             next_p += par_count
+            assert next_p <= self.max_n_particles
+
+        for obj in self.ply_objects:
+            print(f'loading ply from {obj.ply_path}')
+            pcd = o3d.io.read_point_cloud(obj.ply_path)
+            points = np.asarray(pcd.points)
+            self.init_ply_vol(
+                points,
+                next_p,
+                *obj.translation,
+                *obj.rotation,
+                obj.resize_coef,
+                obj.material,
+                *obj.color,
+                obj.p_rho,
+                obj.E,
+                obj.nu,
+                *obj.init_vel,
+            )
+
+            obj.start_p_idx = next_p
+            obj.end_p_idx = next_p + points.shape[0]
+            next_p += points.shape[0]
+            assert next_p <= self.max_n_particles
 
     @ti.kernel
     def set_all_unused(self):
@@ -210,6 +239,48 @@ class SimulationRunner:
             self.materials[i] = material
             self.colors[i] = ti.Vector([color_r, color_g, color_b, 1.0])
             self.p_is_used[i] = 1
+
+    @ti.kernel
+    def init_ply_vol(
+        self,
+        points: ti.types.ndarray(),
+        first_par: int,
+        translation_x: float,
+        translation_y: float,
+        translation_z: float,
+        rotation_x: float,
+        rotation_y: float,
+        rotation_z: float,
+        resize_coef: float,
+        material: int,
+        color_r: float,
+        color_g: float,
+        color_b: float,
+        p_rho: float,
+        E: float,
+        nu: float,
+        init_vel_x: float,
+        init_vel_y: float,
+        init_vel_z: float,
+    ):
+        num_points = points.shape[0]
+        rotation_matrix = ti.math.rotation3d(rotation_x, rotation_y, rotation_z)
+        for i in range(num_points):
+            self.x[first_par + i] = ti.Vector([points[i, 0], points[i, 1], points[i, 2]])
+            self.x[first_par + i] = rotation_matrix[0:3, 0:3] @ self.x[first_par + i] * resize_coef + ti.Vector([translation_x, translation_y, translation_z])
+
+            self.Jp[first_par + i] = 1
+            self.F[first_par + i] = ti.Matrix([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+            self.v[first_par + i] = ti.Vector([init_vel_x, init_vel_y, init_vel_z])
+            self.p_rho[first_par + i] = p_rho
+            self.p_mass[first_par + i] = p_rho * self.p_vol
+            self.p_E[first_par + i] = E
+            self.p_nu[first_par + i] = nu
+            self.p_mu_0[first_par + i] = E / (2 * (1 + nu))
+            self.p_lambda_0[first_par + i] = E * nu / ((1 + nu) * (1 - 2 * nu))
+            self.materials[first_par + i] = material
+            self.colors[first_par + i] = ti.Vector([color_r, color_g, color_b, 1.0])
+            self.p_is_used[first_par + i] = 1
 
     @ti.kernel
     def substep(self):

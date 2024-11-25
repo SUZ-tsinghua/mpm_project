@@ -27,6 +27,11 @@ As shown in the video below, the left ball deforms significantly more than the r
 
 ![](./videos/TwoBalls_extracted.gif)
 
+### Complex Geometry
+
+Users can import any point cloud files in the `.ply` format into the simulation framework. These files can be converted from `.obj` trimesh files using the script `data/obj2ply.py`.
+
+![](./videos/PlyExample.gif)
 
 ## Features Checklist
 
@@ -40,7 +45,7 @@ As shown in the video below, the left ball deforms significantly more than the r
   - [ ] Solid-Solid
   - [ ] Solid-Fluid
   - [ ] Solid-Cloth
-  - [x] Fluid-Fluid
+  - [ ] Fluid-Fluid
   - [ ] Fluid-Cloth
   - [ ] Cloth-Cloth
 - Geometry
@@ -48,7 +53,7 @@ As shown in the video below, the left ball deforms significantly more than the r
     - [x] Cube
     - [x] Ball
     - [ ] ...
-  - Complex (mesh based or equation based) geometry
+  - [x] Complex (mesh based or equation based) geometry
 - Acceleration (Need to analysis the bottleneck and prove your acceleration ratio)
   - [ ] Algorithm acceleration
   - [ ] Multi-thread acceleration
