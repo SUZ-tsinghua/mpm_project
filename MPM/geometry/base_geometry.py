@@ -1,22 +1,15 @@
-material_colors = [(0.1, 0.6, 0.9), (0.93, 0.33, 0.23), (1.0, 1.0, 1.0)]
-
+import taichi as ti
 
 class BaseGeometry:
 
-    def __init__(self, material, p_rho=1.0, E=0.1e4, nu=0.2, color=None, init_vel=None):
-        self.material = material
+    def __init__(self, init_vel=None):
         self.volume = None
-        self.p_rho = p_rho
-        self.E = E
-        self.nu = nu
-        self.start_p_idx = None
-        self.end_p_idx = None
-        if color == None:
-            self.color = material_colors[self.material]
-        else:
-            self.color = color
         
         if init_vel == None:
             self.init_vel = [0.0, 0.0, 0.0]
         else:
             self.init_vel = init_vel
+
+    @ti.func
+    def uniform_sample(self):
+        raise NotImplementedError
