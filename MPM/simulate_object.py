@@ -90,14 +90,6 @@ class ObjectSimulator:
             self.colors[i] = ti.Vector(self.material.color)
             self.p_is_used[i] = 1
 
-    @ti.func
-    def get_stress_func(self, p):
-        pass
-
-    @ti.func
-    def clamp_sig(self, sig):
-        return sig
-
     @ti.kernel
     def P2G(self):
         for i, j, k in self.grid_m:
@@ -120,7 +112,7 @@ class ObjectSimulator:
                 U, sig, V = ti.svd(self.F[p])
                 J = 1.0
                 for d in ti.static(range(3)):
-                    new_sig = self.clamp_sig(sig[d, d])
+                    new_sig = self.material.clamp_sig(sig[d, d])
                     self.Jp[p] *= sig[d, d] / new_sig
                     sig[d, d] = new_sig
                     J *= new_sig
@@ -138,9 +130,6 @@ class ObjectSimulator:
                         self.p_mass[p] * self.v[p] + affine @ dpos)
                     self.grid_m[base + offset] += weight * self.p_mass[p]
 
-    @ti.func
-    def is_normal(self, v):
-        return ti.abs(v[0]) < 1 and ti.abs(v[1]) < 1 and ti.abs(v[2]) < 1
 
     @ti.kernel
     def G2P(self, id: int):

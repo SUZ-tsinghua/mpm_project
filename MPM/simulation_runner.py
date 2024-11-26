@@ -39,10 +39,6 @@ class SimulationRunner:
         for object in self.objects:
             object.set_all_unused()
 
-    @ti.func
-    def is_normal(self, v):
-        return ti.abs(v[0]) < 1 and ti.abs(v[1]) < 1 and ti.abs(v[2]) < 1
-
     @ti.kernel
     def grid_operation(self):
         for I in ti.grouped(self.objects[0].grid_m):
