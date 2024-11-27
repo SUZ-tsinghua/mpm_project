@@ -301,8 +301,10 @@ class SimulationRunner:
                 affine = ti.Matrix.zero(float, self.dim, self.dim)
                 self.F[p] = (ti.Matrix.identity(float, 3) +
                                 self.dt * self.C[p]) @ self.F[p]
-                h = ti.exp(10 * (1.0 - self.Jp[p]))
-                if self.materials[p] == JELLY:
+                h = 1.0
+                if self.materials[p] == SNOW:
+                    h = ti.exp(10 * (1.0 - self.Jp[p]))
+                elif self.materials[p] == JELLY:
                     h = 0.3
                 mu, la = self.p_mu_0[p] * h, self.p_lambda_0[p] * h
                 if self.materials[p] == WATER:
@@ -319,7 +321,8 @@ class SimulationRunner:
                     J *= new_sig
                 if self.materials[p] == WATER:
                     self.F[p] = ti.Matrix.identity(float, 3)
-                    self.F[p][0, 0] = self.Jp[p]
+                    self.F[p][0, 0] = J
+                    self.Jp[p] = J
                 elif self.materials[p] == SNOW:
                     self.F[p] = U @ sig @ V.transpose()
                 stress = 2 * mu * (
@@ -370,7 +373,7 @@ class SimulationRunner:
                     new_C += 4 * self.inv_dx * weight * g_v.outer_product(dpos)
                 self.v[p], self.C[p] = new_v, new_C
                 self.x[p] += self.dt * self.v[p]  # advection
-                self.Jp[p] *= 1 + self.dt * self.C[p].trace()
+                # self.Jp[p] *= 1 + self.dt * self.C[p].trace()
 
     def run(self, run_args):
         self.run_args = run_args
